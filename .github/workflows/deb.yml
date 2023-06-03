@@ -19,7 +19,7 @@ on:
 
 jobs:
   package:
-    if: github.repository == 'v2fly/v2ray-core'
+    if: github.repository == 'LaoKpa/v2ray-core'
     runs-on: ubuntu-latest
     container: golang:1.19-bullseye
 
