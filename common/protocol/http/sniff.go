@@ -2,7 +2,9 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"github.com/v2fly/v2ray-core/v5/common/session"
 	"strings"
 
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -19,6 +21,8 @@ const (
 type SniffHeader struct {
 	version version
 	host    string
+	method  string
+	path    string
 }
 
 func (h *SniffHeader) Protocol() string {
@@ -57,16 +61,39 @@ func beginWithHTTPMethod(b []byte) error {
 	return errNotHTTPMethod
 }
 
-func SniffHTTP(b []byte) (*SniffHeader, error) {
+func SniffHTTP(c context.Context, b []byte) (*SniffHeader, error) {
 	if err := beginWithHTTPMethod(b); err != nil {
 		return nil, err
 	}
-
 	sh := &SniffHeader{
 		version: HTTP1,
 	}
 
+	//method string,path string,pototol string
+
 	headers := bytes.Split(b, []byte{'\n'})
+	header0 := headers[0]
+	parts := bytes.SplitN(header0, []byte{' '}, 3)
+	if len(parts) >= 2 {
+		sh.method = strings.ToLower(string(parts[0]))
+		sh.path = strings.ToLower(string(parts[1]))
+		//pototol := strings.ToLower(string(parts[2]))
+	}
+
+	content := session.ContentFromContext(c)
+	if content == nil {
+		content = new(session.Content)
+		c = session.ContextWithContent(c, content)
+	}
+	content.SetAttribute(":method", strings.ToUpper(sh.method))
+	content.SetAttribute(":path", sh.path)
+	//for key := range request.Header {
+	//	value := request.Header.Get(key)
+	//	content.SetAttribute(strings.ToLower(key), value)
+	//}
+
+	//c = session.ContextWithContent(c, content)
+
 	for i := 1; i < len(headers); i++ {
 		header := headers[i]
 		if len(header) == 0 {

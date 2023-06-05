@@ -223,6 +223,8 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
 			if err == nil {
 				content.Protocol = result.Protocol()
+				newError("content.Protocol: ", content.Protocol, destination).WriteToLog(session.ExportIDToError(ctx))
+
 			}
 			if err == nil && shouldOverride(result, sniffingRequest.OverrideDestinationForProtocol) {
 				if domain, err := strmatcher.ToDomain(result.Domain()); err == nil {
@@ -286,6 +288,9 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, netw
 
 func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.Link, destination net.Destination) {
 	var handler outbound.Handler
+	routingLink := routing_session.AsRoutingContext(ctx)
+	inTag := routingLink.GetInboundTag()
+	protocol := routingLink.GetProtocol()
 
 	if forcedOutboundTag := session.GetForcedOutboundTagFromContext(ctx); forcedOutboundTag != "" {
 		ctx = session.SetForcedOutboundTagToContext(ctx, "")
@@ -325,7 +330,7 @@ func (d *DefaultDispatcher) routedDispatch(ctx context.Context, link *transport.
 
 	if accessMessage := log.AccessMessageFromContext(ctx); accessMessage != nil {
 		if tag := handler.Tag(); tag != "" {
-			accessMessage.Detour = tag
+			accessMessage.Detour = "protocol:" + protocol + "  in:" + inTag + "--> out:" + tag
 			if d.policy.ForSystem().OverrideAccessLogDest {
 				accessMessage.To = destination
 			}
